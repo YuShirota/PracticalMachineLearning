@@ -1,0 +1,69 @@
+---
+title: 'Practical Machine Learning: Course Project'
+author: "YuShirota"
+date: "Thursday, August 20, 2015"
+output: html_document
+---
+
+# Summary
+From various parameters during the exercise, the manner in which the participants did the exercise was estimated. The original dataset contains a number of NAs and apparently useless variables, so that they needed to be removed. Sixty percent of the original data were randomly extracted and served as a training set. Results of training was used to predict the manner of exercise in the varidation set, which is the other 40% of the original data, in order to estimate out-of-sample error rate.  Resulting confusion matrix showed high accuracy.
+
+## Data loading, partition and pre-processing
+The data is split into train set and validation set for cross validation.
+
+```{r, message=FALSE}
+library(caret)
+pmldata <- read.csv("D:/Documents/R_Coursera/pml-training.csv",
+                    header = TRUE, na.strings = "NA")
+set.seed(324)
+inTrain <- createDataPartition(pmldata$classe, p = 0.6, list = FALSE)
+pml_train <- pmldata[inTrain, ]
+pml_validation <- pmldata[-inTrain, ]
+```
+
+There are a lot of variables in the dataset.
+```{r,echo=TRUE}
+length(names(pml_train))
+```
+The dataset contains a number of useless variables. 
+Here, variables where more than half are "NA" or those with near zero variance are removed. "Near zero variance" is determined using nearZeroVar function in the caret package.
+
+```{r,echo=TRUE}
+count_na <- apply(pml_train, 2, function(x) length(which(is.na(x))))
+pml_train <- pml_train[, (count_na <= length(pml_train) * 0.5)]
+nsv <- nearZeroVar(pml_train, saveMetrics = TRUE)
+pml_train <- pml_train[, nsv$nzv == FALSE]
+length(names(pml_train))
+```
+
+Now the number of variables is substantially decreased. Furthermore, several variables are just labels, i.e., subject names or recorded date/time. These are
+also removed.
+```{r,echo=TRUE}
+pml_train <- pml_train[, 7:59]
+```
+
+
+## Training process
+Here I choose random forest method to classify the manner in which the participants did the exercise. It is stored in the variable "classe."
+```{r, message=FALSE}
+modelRF <- train(classe ~., data = pml_train, method = "rf", 
+                  trControl=trainControl(number=5), ntree = 100, prox = TRUE)
+```
+
+It took 689.84 seconds.
+
+## Cross validation
+Using the validation dataset, out-of-sample error rate is estimated.
+```{r}
+pred <- predict(modelRF, pml_validation)
+confusionMatrix(pml_validation$classe, pred)$table
+confusionMatrix(pml_validation$classe, pred)$overall
+```
+As you can see, the accuracy is high.
+
+
+
+
+
+
+
